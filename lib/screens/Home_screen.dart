@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pie_chart/pie_chart.dart';
 import 'category_screen.dart';
 import 'history_screen.dart';
+import 'login_screen.dart';
+import 'dart:io'; // Add this import for image file handling
+import 'package:image_picker/image_picker.dart'; // Add this import for image picking
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -12,27 +15,48 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, double> categoryData = {};
-  List<String> categories = [];
+  List<Map<String, dynamic>> categories = [];
+  int registeredUsersCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadCategoryData();
+    _getRegisteredUsersCount();
   }
 
   Future<void> _loadCategoryData() async {
     final prefs = await SharedPreferences.getInstance();
     final storedCategories = prefs.getStringList('categories') ?? [];
 
-    final Map<String, double> data = {};
+    final List<Map<String, dynamic>> data = [];
     for (var category in storedCategories) {
       final products = prefs.getStringList(category) ?? [];
-      data[category] = products.length.toDouble();
+      final imageUrl = prefs.getString('${category}_image') ?? '';
+      data.add({
+        'name': category,
+        'image': imageUrl,
+        'productCount': products.length.toDouble(),
+      });
     }
 
     setState(() {
-      categories = storedCategories;
-      categoryData = data;
+      categories = data;
+      categoryData = Map.fromIterable(data, key: (e) => e['name'], value: (e) => e['productCount']);
+    });
+  }
+
+  Future<void> _getRegisteredUsersCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys();
+    int count = 0;
+    for (var key in keys) {
+      if (prefs.containsKey(key) && key.contains('@')) { // Assuming email contains '@'
+        count++;
+      }
+    }
+    setState(() {
+      registeredUsersCount = count;
     });
   }
 
@@ -49,24 +73,62 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList('user_actions', userActions);
   }
 
-
-
   Future<void> _addNewCategory() async {
-    final newCategory = await showDialog<String>(
+    final nameController = TextEditingController();
+    final picker = ImagePicker();
+    XFile? pickedImage;
+
+    await showDialog<void>(
       context: context,
       builder: (context) {
-        final controller = TextEditingController();
         return AlertDialog(
           title: const Text('Add New Category'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(hintText: 'Enter category name'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(hintText: 'Enter category name'),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(pickedImage != null ? pickedImage!.name : 'No image selected'),
+                  IconButton(
+                    icon: const Icon(Icons.image),
+                    onPressed: () async {
+                      pickedImage = await picker.pickImage(source: ImageSource.gallery);
+                      setState(() {}); // Refresh dialog state to show the selected image name
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
           actions: [
             TextButton(
-              onPressed: () async{
-                Navigator.of(context).pop(controller.text);
-                await _logUserAction('Created a Category name: ("${controller.text}")');
+              onPressed: () async {
+                final name = nameController.text;
+                if (name.isNotEmpty && pickedImage != null) {
+                  final prefs = await SharedPreferences.getInstance();
+                  final storedCategories = prefs.getStringList('categories') ?? [];
+                  storedCategories.add(name);
+                  await prefs.setStringList('categories', storedCategories);
+                  await prefs.setString('${name}_image', pickedImage!.path); // Save the image path
+                  await prefs.setStringList(name, []);
+
+                  await _logUserAction('Created a Category with name: "$name" and image: "${pickedImage!.name}"');
+
+                  setState(() {
+                    categories.add({
+                      'name': name,
+                      'image': pickedImage!.path,
+                      'productCount': 0.0,
+                    });
+                    categoryData[name] = 0; // Initialize with zero products
+                  });
+                }
+                Navigator.of(context).pop();
               },
               child: const Text('Add'),
             ),
@@ -80,20 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-
-    if (newCategory != null && newCategory.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      final storedCategories = prefs.getStringList('categories') ?? [];
-      storedCategories.add(newCategory);
-      await prefs.setStringList('categories', storedCategories);
-      await prefs.setStringList(newCategory, []);
-
-      setState(() {
-        categories.add(newCategory);
-        categoryData[newCategory] = 0; // Initialize with zero products
-      });
-    }
   }
+
 
   Future<void> _deleteCategory(String category) async {
     final prefs = await SharedPreferences.getInstance();
@@ -101,12 +151,21 @@ class _HomeScreenState extends State<HomeScreen> {
     storedCategories.remove(category);
     await prefs.setStringList('categories', storedCategories);
     await prefs.remove(category);
-    await _logUserAction('Deleted Category name: ("${category}")');
+    await prefs.remove('${category}_image');
+    await _logUserAction('Deleted Category with name: "$category"');
 
     setState(() {
-      categories.remove(category);
+      categories.removeWhere((item) => item['name'] == category);
       categoryData.remove(category);
     });
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Clear all data from SharedPreferences
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => LoginScreen()), // Replace with your login screen
+    );
   }
 
   @override
@@ -117,15 +176,18 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
-              // Navigate to the HistoryScreen when the icon is tapped
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => ActionHistoryScreen()),
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
         ],
-        title: const Text('Beauty Store Inventory'),
+        title: Text('Users: $registeredUsersCount'),
         backgroundColor: Colors.blueAccent,
       ),
       body: Padding(
@@ -150,8 +212,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(categoryData.isNotEmpty?
-              'Categories':'',
+            Text(categoryData.isNotEmpty
+                ? 'Categories'
+                : '',
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
@@ -167,19 +230,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final category = categories[index];
-                  final productCount = categoryData[category]?.toInt() ?? 0;
+                  final productCount = category['productCount']?.toInt() ?? 0;
+                  final imageUrl = category['image'] as String;
                   return GestureDetector(
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ProductListScreen(category: category),
+                          builder: (context) => ProductListScreen(category: category['name']),
                         ),
                       );
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent,
+                        image: DecorationImage(
+                          image: FileImage(File(imageUrl)), // Use FileImage to load the image
+                          fit: BoxFit.cover,
+                        ),
                         borderRadius: BorderRadius.circular(8.0),
                         boxShadow: [
                           BoxShadow(
@@ -194,24 +261,36 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Center(
                             child: Text(
-                              '$category ($productCount)',
+                              '${category['name']} ($productCount)',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                                backgroundColor: Colors.black54, // To make text more readable
                               ),
                             ),
                           ),
+                          // Positioned(
+                          //   top: 1,
+                          //   right: 25,
+                          //   child: IconButton(
+                          //     icon: const Icon(Icons.edit, color: Colors.white),
+                          //     onPressed: () {
+                          //
+                          //     },
+                          //   ),
+                          // ),
                           Positioned(
                             top: 1,
                             right: 1,
                             child: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () {
-                                _showDeleteConfirmationDialog(category);
+                                _deleteCategory(category['name']);
                               },
                             ),
                           ),
+
                         ],
                       ),
                     ),
@@ -219,99 +298,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _addNewCategory,
+              child: const Text('Add Category'),
+            ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showCategorySelectionDialog(context);
-        },
-        backgroundColor: Colors.blueAccent,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  void _showCategorySelectionDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => CategorySelectionDialog(
-        categories: categories,
-        onAddCategory: _addNewCategory,
-      ),
-    );
-  }
-
-  void _showDeleteConfirmationDialog(String category) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Category'),
-          content: Text('Are you sure you want to delete the category "$category"?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteCategory(category);
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class CategorySelectionDialog extends StatefulWidget {
-  final List<String> categories;
-  final Future<void> Function() onAddCategory;
-
-  CategorySelectionDialog({required this.categories, required this.onAddCategory});
-
-  @override
-  _CategorySelectionDialogState createState() => _CategorySelectionDialogState();
-}
-
-class _CategorySelectionDialogState extends State<CategorySelectionDialog> {
-  String? _selectedCategory;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Select a Category'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ...widget.categories.map((category) {
-            return ListTile(
-              title: Text(category),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategoryScreen(category: category),
-                  ),
-                );
-              },
-            );
-          }).toList(),
-          ListTile(
-            title: const Text('Add New Category'),
-            onTap: () {
-              Navigator.of(context).pop();
-              widget.onAddCategory();
-            },
-          ),
-        ],
       ),
     );
   }

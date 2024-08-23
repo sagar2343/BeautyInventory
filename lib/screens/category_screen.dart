@@ -22,6 +22,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
   final _descriptionController = TextEditingController();
   final _weightController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _skuController  = TextEditingController();
+  final _dimensionController = TextEditingController();
+
   File? _image;
   final ImagePicker _picker = ImagePicker();
 
@@ -93,11 +96,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
               TextField(
                 controller: _weightController,
                 decoration: const InputDecoration(
-                  labelText: 'Weight (kg)',
+                  labelText: 'Weight (e.g., 1.5kg)',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.line_weight),
                 ),
-                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 20),
               TextField(
@@ -107,7 +109,24 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.confirmation_number),
                 ),
-                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _skuController,
+                decoration: const InputDecoration(
+                  labelText: 'SKU',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.qr_code),
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _dimensionController,
+                decoration: const InputDecoration(
+                  labelText: 'Dimension (e.g., 10x20x15 cm)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.straighten),
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
@@ -220,10 +239,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Future<void> _uploadProduct() async {
     final title = _titleController.text;
     final description = _descriptionController.text;
-    final weight = "${_weightController.text}kg";
+    final weight = _weightController.text;
     final quantity = _quantityController.text;
+    final sku = _skuController.text;
+    final dimension = _dimensionController.text;
 
-    if (_image == null || title.isEmpty || description.isEmpty || weight.isEmpty || quantity.isEmpty) {
+    if (_image == null || title.isEmpty || description.isEmpty || weight.isEmpty || quantity.isEmpty || sku.isEmpty || dimension.isEmpty) {
       _showMessage('Please fill in all fields and select an image.');
       return;
     }
@@ -239,6 +260,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
       'description': description,
       'weight': weight,
       'quantity': quantity,
+      'sku': sku,
+      'dimension': dimension,
       'image': base64Image,
     };
 
@@ -246,11 +269,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
     await prefs.setStringList(widget.category, categoryProducts);
 
     _showMessage('Product uploaded successfully!');
-    await logUserAction('Uploaded a product ("$title") with weight ($weight kg) and quantity ($quantity) in category ("${widget.category}")');
+    await logUserAction('Uploaded a product ("$title") in category ("${widget.category}") with details (weight: "$weight", quantity: "$quantity", SKU: "$sku", dimension: "$dimension")');
 
     _clearFields();
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
   }
+
 
 
   void _showMessage(String message) {
@@ -265,9 +289,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
       _descriptionController.clear();
       _weightController.clear();
       _quantityController.clear();
+      _skuController.clear();
+      _dimensionController.clear();
       _image = null;
     });
   }
+
 
 }
 

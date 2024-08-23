@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ideamagix_assign/screens/registration_screen.dart';
+
 import 'screens/Home_screen.dart';
 
 void main() {

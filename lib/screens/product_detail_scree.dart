@@ -7,6 +7,9 @@ class ProductDetailScreen extends StatelessWidget {
   final String imageBase64;
   final String weight;
   final String quantity;
+  final String sku;
+  final String dimension;
+
 
   const ProductDetailScreen({
     Key? key,
@@ -15,6 +18,9 @@ class ProductDetailScreen extends StatelessWidget {
     required this.imageBase64,
     required this.weight,
     required this.quantity,
+    required this.sku,
+    required this.dimension,
+
   }) : super(key: key);
 
   @override
@@ -73,8 +79,35 @@ class ProductDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 5,
+                    backgroundColor:(int.parse(quantity) < 10) ? Colors.red : Colors.green,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Quantity: ${quantity.isNotEmpty ? quantity : 'N/A'}', // Handle potential null values
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                'Quantity: ${quantity.isNotEmpty ? quantity : 'N/A'}', // Handle potential null values
+                'SKU: ${sku.isNotEmpty ? quantity : 'N/A'}', // Handle potential null values
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Dimension: ${dimension.isNotEmpty ? quantity : 'N/A'}', // Handle potential null values
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
