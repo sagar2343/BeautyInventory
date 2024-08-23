@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:ideamagix_assign/screens/registration_screen.dart';
-
 import 'screens/Home_screen.dart';
 
 void main() {
@@ -19,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: RegisterScreen(),
+      home: HomeScreen(),
     );
   }
 }

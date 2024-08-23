@@ -20,6 +20,8 @@ class CategoryScreen extends StatefulWidget {
 class _CategoryScreenState extends State<CategoryScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _weightController = TextEditingController();
+  final _quantityController = TextEditingController();
   File? _image;
   final ImagePicker _picker = ImagePicker();
 
@@ -88,6 +90,26 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 maxLines: 4,
               ),
               const SizedBox(height: 20),
+              TextField(
+                controller: _weightController,
+                decoration: const InputDecoration(
+                  labelText: 'Weight (kg)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.line_weight),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _quantityController,
+                decoration: const InputDecoration(
+                  labelText: 'Quantity',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.confirmation_number),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _uploadProduct,
                 style: ElevatedButton.styleFrom(
@@ -108,6 +130,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
     );
   }
+
 
   void _showImageSourceDialog() {
     showDialog(
@@ -197,8 +220,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Future<void> _uploadProduct() async {
     final title = _titleController.text;
     final description = _descriptionController.text;
+    final weight = "${_weightController.text}kg";
+    final quantity = _quantityController.text;
 
-    if (_image == null || title.isEmpty || description.isEmpty) {
+    if (_image == null || title.isEmpty || description.isEmpty || weight.isEmpty || quantity.isEmpty) {
       _showMessage('Please fill in all fields and select an image.');
       return;
     }
@@ -212,6 +237,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final product = {
       'title': title,
       'description': description,
+      'weight': weight,
+      'quantity': quantity,
       'image': base64Image,
     };
 
@@ -219,11 +246,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
     await prefs.setStringList(widget.category, categoryProducts);
 
     _showMessage('Product uploaded successfully!');
-    await logUserAction('Uploaded a product ("$title") in category ("${widget.category}")');
+    await logUserAction('Uploaded a product ("$title") with weight ($weight kg) and quantity ($quantity) in category ("${widget.category}")');
 
     _clearFields();
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>HomeScreen()));
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
   }
+
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -235,9 +263,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
     setState(() {
       _titleController.clear();
       _descriptionController.clear();
+      _weightController.clear();
+      _quantityController.clear();
       _image = null;
     });
   }
+
 }
 
 Future<void> logUserAction(String action) async {

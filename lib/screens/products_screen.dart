@@ -167,6 +167,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     title: product['title'],
                     description: product['description'],
                     imageBase64: product['image'],
+                    weight: product['weight'],  // Pass the weight
+                    quantity: product['quantity'],
                   ),
                 ),
               );
